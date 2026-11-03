@@ -12,8 +12,10 @@ using Microsoft.Win32;
 
 namespace UndoUnintendedKeymode
 {
+    /// <summary>アプリのエントリポイント。</summary>
     static class Program
     {
+        /// <summary>多重起動を防いだうえで、タスクトレイに常駐するアプリを開始する。</summary>
         [STAThread]
         static void Main()
         {
@@ -33,13 +35,19 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>Caps Lock・IME・入力モード・入力方式の状態をまとめたもの。</summary>
     class KeyState
     {
+        /// <summary>Caps Lock がオンかどうか。</summary>
         public bool Caps;
+        /// <summary>IME の状態を取得できたかどうか。</summary>
         public bool ImeKnown;
+        /// <summary>IME がオン（日本語入力）かどうか。</summary>
         public bool ImeOpen;
+        /// <summary>IME の変換モード（IME_CMODE_* の組み合わせ）。</summary>
         public int ConversionMode;
 
+        /// <summary>戻す先のデフォルト状態（Caps Lock オフ、IME オン、ひらがな、ローマ字入力）。</summary>
         public static readonly KeyState Default = MakeDefault();
         static KeyState MakeDefault()
         {
@@ -53,12 +61,18 @@ namespace UndoUnintendedKeymode
             return k;
         }
 
-        // NATIVE | KATAKANA | FULLSHAPE
+        /// <summary>入力モードの比較に使う変換モードのビット（NATIVE | KATAKANA | FULLSHAPE）。</summary>
         public const int ModeMask = 0x1 | 0x2 | 0x8;
-        // 新しい Microsoft IME では変換モードに反映されないため、レジストリ (KanaInput) から読む
+        /// <summary>
+        /// 入力方式（かな入力 / ローマ字入力）を取得できたかどうか。
+        /// 新しい Microsoft IME では変換モードに反映されないため、レジストリ（<see cref="KanaInput"/>）から読む。
+        /// </summary>
         public bool KanaKnown;
+        /// <summary>かな入力かどうか（false ならローマ字入力）。</summary>
         public bool Kana;
 
+        /// <summary>変換モードを表示用の名前（ひらがな、全角カタカナ など）にする。</summary>
+        /// <param name="mode">IME の変換モード。</param>
         public static string ModeName(int mode)
         {
             const int NATIVE = 0x1, KATAKANA = 0x2, FULLSHAPE = 0x8;
@@ -68,9 +82,13 @@ namespace UndoUnintendedKeymode
             return full ? "全角英数" : "半角英数";
         }
 
+        /// <summary>Caps Lock の状態の表示用テキスト。</summary>
         public string CapsText { get { return Caps ? "オン（大文字）" : "オフ"; } }
+        /// <summary>IME のオン/オフの表示用テキスト。</summary>
         public string ImeText { get { return !ImeKnown ? "取得できません" : (ImeOpen ? "オン" : "オフ"); } }
+        /// <summary>入力方式の表示用テキスト。</summary>
         public string KanaText { get { return !KanaKnown ? "取得できません" : (Kana ? "かな入力" : "ローマ字入力"); } }
+        /// <summary>入力モードの表示用テキスト。</summary>
         public string ModeText
         {
             get
@@ -81,17 +99,23 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>settings.ini に保存するユーザー設定。</summary>
     class Settings
     {
+        /// <summary>戻したときにバルーン通知を出すかどうか。</summary>
         public bool Notify = true;
+        /// <summary>自動で戻す項目。</summary>
         public RestoreParts AutoParts = 0;
 
+        /// <summary>設定ファイルを置くフォルダー（%APPDATA%\UndoUnintendedKeymode）。</summary>
         public static string Dir
         {
             get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UndoUnintendedKeymode"); }
         }
+        /// <summary>設定ファイルのパス。</summary>
         public static string FilePath { get { return Path.Combine(Dir, "settings.ini"); } }
 
+        /// <summary>設定ファイルを読み込む。ファイルがない、または読めない場合は既定値を返す。</summary>
         public static Settings Load()
         {
             var s = new Settings();
@@ -115,18 +139,23 @@ namespace UndoUnintendedKeymode
             return s;
         }
 
+        /// <summary>辞書から値を取得する。キーがなければ <paramref name="def"/> を返す。</summary>
         static string Get(Dictionary<string, string> d, string key, string def)
         {
             string v;
             return d.TryGetValue(key, out v) ? v : def;
         }
+        /// <summary>辞書から "1" / "0" の値を bool で取得する。キーがなければ <paramref name="def"/> を返す。</summary>
         static bool GetBool(Dictionary<string, string> d, string key, bool def)
         {
             string v;
             return d.TryGetValue(key, out v) ? v == "1" : def;
         }
+        /// <summary>bool を設定ファイル用の "1" / "0" にする。</summary>
         static string B(bool b) { return b ? "1" : "0"; }
 
+        /// <summary>設定ファイルに保存する。</summary>
+        /// <returns>保存できたら true。</returns>
         public bool Save()
         {
             try
@@ -143,6 +172,7 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>Win32 API の定数・構造体・関数の宣言。</summary>
     static class Native
     {
         public const int WH_KEYBOARD_LL = 13;
@@ -161,6 +191,7 @@ namespace UndoUnintendedKeymode
         public const int IMC_SETOPENSTATUS = 0x0006;
         public const uint SMTO_ABORTIFHUNG = 0x0002;
 
+        /// <summary>低レベルキーボードフックのコールバック。</summary>
         public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -223,11 +254,16 @@ namespace UndoUnintendedKeymode
         public static extern bool DestroyIcon(IntPtr hIcon);
     }
 
-    // Microsoft IME のかな入力設定。kanaMd: 1 = かな入力, 2 = ローマ字入力（書き換えると IME に即時反映される）
+    /// <summary>
+    /// Microsoft IME のかな入力設定をレジストリで読み書きする。
+    /// kanaMd: 1 = かな入力, 2 = ローマ字入力（書き換えると IME に即時反映される）。
+    /// </summary>
     static class KanaInput
     {
         const string KeyPath = @"Software\AppDataLow\Software\Microsoft\IME\15.0\IMEJP\MSIME";
 
+        /// <summary>かな入力の設定を読み取る。</summary>
+        /// <returns>かな入力なら true、ローマ字入力なら false、取得できなければ null。</returns>
         public static bool? IsKana()
         {
             try
@@ -246,6 +282,9 @@ namespace UndoUnintendedKeymode
             catch { return null; }
         }
 
+        /// <summary>かな入力の設定を書き込む。</summary>
+        /// <param name="kana">true ならかな入力、false ならローマ字入力。</param>
+        /// <returns>書き込めたら true。</returns>
         public static bool Set(bool kana)
         {
             try
@@ -261,15 +300,23 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>IME ウィンドウから読み取った IME の状態。</summary>
     class ImeState
     {
+        /// <summary>状態を読み取った IME ウィンドウ。</summary>
         public IntPtr ImeWnd;
+        /// <summary>IME がオンかどうか。</summary>
         public bool Open;
+        /// <summary>IME の変換モード。</summary>
         public int ConversionMode;
     }
 
+    /// <summary>WM_IME_CONTROL を使って、ほかのウィンドウの IME を読み書きする。</summary>
     static class Ime
     {
+        /// <summary>ウィンドウ（フォーカスのある子ウィンドウを優先）の既定の IME ウィンドウを取得する。</summary>
+        /// <param name="top">対象のトップレベルウィンドウ。</param>
+        /// <returns>IME ウィンドウ。取得できなければ IntPtr.Zero。</returns>
         public static IntPtr GetImeWndFor(IntPtr top)
         {
             if (top == IntPtr.Zero || !Native.IsWindow(top)) return IntPtr.Zero;
@@ -282,6 +329,12 @@ namespace UndoUnintendedKeymode
             return Native.ImmGetDefaultIMEWnd(target);
         }
 
+        /// <summary>IME ウィンドウに WM_IME_CONTROL を送る。応答しないウィンドウで止まらないよう 50 ms でタイムアウトする。</summary>
+        /// <param name="imeWnd">送り先の IME ウィンドウ。</param>
+        /// <param name="cmd">IMC_* のコマンド。</param>
+        /// <param name="value">コマンドに渡す値。</param>
+        /// <param name="result">戻り値。</param>
+        /// <returns>送信できたら true。</returns>
         static bool Send(IntPtr imeWnd, int cmd, int value, out int result)
         {
             IntPtr r;
@@ -291,6 +344,9 @@ namespace UndoUnintendedKeymode
             return ok != IntPtr.Zero;
         }
 
+        /// <summary>IME のオン/オフと変換モードを読み取る。</summary>
+        /// <param name="w">IME ウィンドウ。</param>
+        /// <returns>読み取った状態。読み取れなければ null。</returns>
         public static ImeState ReadFrom(IntPtr w)
         {
             if (w == IntPtr.Zero || !Native.IsWindow(w)) return null;
@@ -304,12 +360,18 @@ namespace UndoUnintendedKeymode
             return s;
         }
 
+        /// <summary>IME のオン/オフを設定する。</summary>
+        /// <param name="w">IME ウィンドウ。</param>
+        /// <param name="open">true ならオン。</param>
         public static void SetOpen(IntPtr w, bool open)
         {
             int dummy;
             Send(w, Native.IMC_SETOPENSTATUS, open ? 1 : 0, out dummy);
         }
 
+        /// <summary>IME の変換モードを設定する。</summary>
+        /// <param name="w">IME ウィンドウ。</param>
+        /// <param name="mode">設定する変換モード。</param>
         public static void SetConversionMode(IntPtr w, int mode)
         {
             int dummy;
@@ -317,13 +379,17 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>デフォルトに戻す項目。</summary>
     [Flags]
     enum RestoreParts { Caps = 1, Ime = 2, Mode = 4, Kana = 8, ImeAll = Ime | Mode | Kana, All = Caps | Ime | Mode | Kana }
 
+    /// <summary>フォームとコントロールを作る共通処理。</summary>
     static class UI
     {
+        /// <summary>デフォルトと違う項目の背景色。</summary>
         public static readonly Color DiffColor = Color.FromArgb(255, 230, 200);
 
+        /// <summary>フォームに共通の設定（フォント・枠・自動サイズなど）を適用する。</summary>
         public static void SetupForm(Form f, string title)
         {
             f.Text = title;
@@ -339,6 +405,7 @@ namespace UndoUnintendedKeymode
             f.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         }
 
+        /// <summary>フォーム全体に敷く縦並びのレイアウトパネルを作って追加する。</summary>
         public static TableLayoutPanel Root(Form f)
         {
             var root = new TableLayoutPanel();
@@ -350,26 +417,33 @@ namespace UndoUnintendedKeymode
             return root;
         }
 
+        /// <summary>見出しのラベルを作る。</summary>
         public static Label Section(string t)
         {
             return new Label { Text = t, AutoSize = true, Font = new Font("Yu Gothic UI", 11f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(32, 90, 160), Margin = new Padding(0, 0, 0, 4) };
         }
+        /// <summary>表のヘッダーセルを作る。</summary>
         public static Label Head(string t)
         {
             return new Label { Text = t, Dock = DockStyle.Fill, Font = new Font("Yu Gothic UI", 10f, FontStyle.Bold),
                 BackColor = Color.FromArgb(235, 242, 250), Padding = new Padding(6, 4, 6, 4), AutoSize = true };
         }
+        /// <summary>表のセルを作る。</summary>
         public static Label Cell(string t)
         {
             return new Label { Text = t, Dock = DockStyle.Fill, Padding = new Padding(6, 4, 6, 4), AutoSize = true,
                 TextAlign = ContentAlignment.MiddleLeft };
         }
+        /// <summary>ボタンを作る。</summary>
         public static Button Btn(string t)
         {
             return new Button { Text = t, AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
         }
 
+        /// <summary>フォームを画面右下（通知領域の近く）に表示して前面に出す。</summary>
+        /// <param name="f">表示するフォーム。</param>
+        /// <param name="offsetX">右端からさらに左へずらす量（ピクセル）。</param>
         public static void ShowNearTray(Form f, int offsetX)
         {
             if (!f.Visible)
@@ -383,6 +457,7 @@ namespace UndoUnintendedKeymode
         }
     }
 
+    /// <summary>キーの状態と設定を表示するメイン画面。</summary>
     class MainForm : Form
     {
         readonly TrayApp app;
@@ -393,6 +468,7 @@ namespace UndoUnintendedKeymode
         readonly CheckBox optNotify, optStartup;
         readonly ToolTip tip = new ToolTip();
         readonly System.Windows.Forms.Timer refresh;
+        /// <summary>画面に値を反映している最中かどうか（その間はチェックの変更を無視する）。</summary>
         bool syncing = false;
 
         public MainForm(TrayApp app)
@@ -468,6 +544,7 @@ namespace UndoUnintendedKeymode
             };
         }
 
+        /// <summary>指定した項目を手動でデフォルトに戻す「元に戻す」ボタンを作る。</summary>
         Button RowButton(RestoreParts part)
         {
             var b = new Button { Text = "元に戻す", AutoSize = true, Margin = new Padding(4, 2, 4, 2), Padding = new Padding(4, 0, 4, 0) };
@@ -475,6 +552,7 @@ namespace UndoUnintendedKeymode
             return b;
         }
 
+        /// <summary>指定した項目の「自動で戻す」チェックボックスを作る。</summary>
         CheckBox AutoBox(RestoreParts part)
         {
             var c = new CheckBox { Text = "", AutoSize = true, Anchor = AnchorStyles.None, Margin = new Padding(8, 4, 8, 4) };
@@ -483,6 +561,7 @@ namespace UndoUnintendedKeymode
             return c;
         }
 
+        /// <summary>設定のチェックボックスを作る。変更すると設定を保存する。</summary>
         CheckBox Opt(string t)
         {
             var c = new CheckBox { Text = t, AutoSize = true };
@@ -496,8 +575,10 @@ namespace UndoUnintendedKeymode
             return c;
         }
 
+        /// <summary>画面を通知領域の近くに表示する。</summary>
         public void ShowNearTray() { UI.ShowNearTray(this, 0); }
 
+        /// <summary>現在の設定を設定欄のチェックボックスに反映する。</summary>
         void LoadSettingsToView()
         {
             syncing = true;
@@ -506,6 +587,7 @@ namespace UndoUnintendedKeymode
             syncing = false;
         }
 
+        /// <summary>キーの状態を読み直して表示を更新する。デフォルトと違う項目には色を付け、「元に戻す」ボタンを有効にする。</summary>
         public void RefreshView()
         {
             var cur = app.ReadCurrentState();
@@ -548,6 +630,7 @@ namespace UndoUnintendedKeymode
             syncing = false;
         }
 
+        /// <summary>エクスプローラーで設定ファイル（なければフォルダー）を開く。</summary>
         static void OpenSettingsFolder()
         {
             try
@@ -563,9 +646,11 @@ namespace UndoUnintendedKeymode
             catch { }
         }
 
+        /// <summary>文字列が <paramref name="max"/> 文字を超える場合、末尾を「…」にして切り詰める。</summary>
         static string Shorten(string s, int max) { return s.Length <= max ? s : s.Substring(0, max - 1) + "…"; }
     }
 
+    /// <summary>タスクトレイに常駐し、キーの状態を監視してデフォルトに戻すアプリ本体。</summary>
     class TrayApp : ApplicationContext
     {
         const string AppName = "Undo Unintended Keymode";
@@ -581,7 +666,9 @@ namespace UndoUnintendedKeymode
         readonly uint myPid;
 
         readonly System.Windows.Forms.Timer watchTimer;
+        /// <summary>Caps Lock を切り替えている最中かどうか（二重に切り替えないため）。</summary>
         bool capsBusy = false;
+        /// <summary>この時刻までは IME を自動で戻す処理をしない。</summary>
         DateTime imeAutoCooldown = DateTime.MinValue;
 
         IntPtr targetWindow = IntPtr.Zero; // 直前にアクティブだった、このツールとタスクバー以外のウィンドウ
@@ -590,6 +677,7 @@ namespace UndoUnintendedKeymode
         IntPtr currentIconHandle = IntPtr.Zero;
         DateTime lastBalloon = DateTime.MinValue;
 
+        /// <summary>設定を読み込み、トレイアイコン・キーボードフック・監視タイマーを開始する。</summary>
         public TrayApp()
         {
             ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
@@ -629,6 +717,8 @@ namespace UndoUnintendedKeymode
             Balloon("起動しました", "アイコンをクリックすると画面を開きます。", true);
         }
 
+        /// <summary>設定の変更をファイル・アイコン・画面に反映する。</summary>
+        /// <param name="save">設定ファイルに保存するかどうか。</param>
         void Sync(bool save = true)
         {
             if (save) settings.Save();
@@ -636,8 +726,13 @@ namespace UndoUnintendedKeymode
             if (mainForm != null && mainForm.Visible) mainForm.RefreshView();
         }
 
+        /// <summary>現在の設定。</summary>
         public Settings CurrentSettings { get { return settings; } }
 
+        /// <summary>通知と自動起動の設定を変更して保存する。</summary>
+        /// <param name="notify">戻したときに通知するかどうか。</param>
+        /// <param name="startup">Windows の起動時に自動で起動するかどうか。</param>
+        /// <returns>すべて保存できたら true。</returns>
         public bool ApplySettings(bool notify, bool startup)
         {
             settings.Notify = notify;
@@ -648,8 +743,10 @@ namespace UndoUnintendedKeymode
             return ok;
         }
 
+        /// <summary>メイン画面を表示する。</summary>
         public void ShowMain() { mainForm.ShowNearTray(); }
 
+        /// <summary>前面のウィンドウがこのツールとタスクバー以外なら、操作対象のウィンドウとして記録する。</summary>
         void TrackTargetWindow()
         {
             IntPtr fg = Native.GetForegroundWindow();
@@ -665,6 +762,7 @@ namespace UndoUnintendedKeymode
             targetWindow = fg;
         }
 
+        /// <summary>前面のウィンドウがこのツールのものかどうか。</summary>
         bool IsOwnWindowForeground()
         {
             uint pid;
@@ -672,6 +770,7 @@ namespace UndoUnintendedKeymode
             return pid == myPid;
         }
 
+        /// <summary>操作対象のウィンドウのタイトル。ウィンドウがなければ空文字。</summary>
         public string TargetWindowTitle
         {
             get
@@ -683,8 +782,10 @@ namespace UndoUnintendedKeymode
             }
         }
 
+        /// <summary>指定した項目が「自動で戻す」になっているかどうか。</summary>
         public bool IsAuto(RestoreParts p) { return (settings.AutoParts & p) != 0; }
 
+        /// <summary>Caps Lock・操作対象のウィンドウの IME・入力方式の現在の状態を読み取る。</summary>
         public KeyState ReadCurrentState()
         {
             var k = new KeyState();
@@ -702,6 +803,9 @@ namespace UndoUnintendedKeymode
             return k;
         }
 
+        /// <summary>指定した項目の「自動で戻す」を切り替える。オンにしたときはすぐにデフォルトへ戻す。</summary>
+        /// <param name="p">対象の項目。</param>
+        /// <param name="on">true なら自動で戻す。</param>
         public void SetAuto(RestoreParts p, bool on)
         {
             if (on) settings.AutoParts |= p; else settings.AutoParts &= ~p;
@@ -709,7 +813,9 @@ namespace UndoUnintendedKeymode
             if (on) { RestoreDefault(false, p & ~RestoreParts.Caps); CheckCaps(); }
         }
 
-        // manual: 対象ウィンドウを前面に戻してから適用し、結果を通知する
+        /// <summary>指定した項目をデフォルトに戻す。</summary>
+        /// <param name="manual">true のとき、対象のウィンドウを前面に戻してから適用し、結果を通知する。</param>
+        /// <param name="parts">戻す項目。</param>
         public void RestoreDefault(bool manual, RestoreParts parts = RestoreParts.All)
         {
             var sav = KeyState.Default;
@@ -741,6 +847,11 @@ namespace UndoUnintendedKeymode
             }
         }
 
+        /// <summary>指定した項目を <paramref name="sav"/> の状態にそろえる。</summary>
+        /// <param name="sav">そろえる先の状態。</param>
+        /// <param name="window">対象のウィンドウ。</param>
+        /// <param name="parts">そろえる項目。</param>
+        /// <returns>変更した内容の説明の一覧。</returns>
         List<string> ApplyState(KeyState sav, IntPtr window, RestoreParts parts)
         {
             var changes = new List<string>();
@@ -791,6 +902,7 @@ namespace UndoUnintendedKeymode
             return changes;
         }
 
+        /// <summary>「自動で戻す」の IME 関連の項目がずれていればデフォルトに戻す。このツールの画面が前面のときやクールダウン中は何もしない。</summary>
         void AutoRestoreIme()
         {
             var parts = settings.AutoParts & RestoreParts.ImeAll;
@@ -807,6 +919,7 @@ namespace UndoUnintendedKeymode
             }
         }
 
+        /// <summary>低レベルキーボードフック。ユーザーが Caps Lock や 変換 / カタカナひらがな キーを離したら、少し待ってから状態を確認する。</summary>
         IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
@@ -824,14 +937,18 @@ namespace UndoUnintendedKeymode
             return Native.CallNextHookEx(hookHandle, nCode, wParam, lParam);
         }
 
+        /// <summary>Caps Lock がオンかどうか。</summary>
         static bool IsCapsOn() { return (Native.GetKeyState(Native.VK_CAPITAL) & 1) != 0; }
 
+        /// <summary>Caps Lock のあるべき状態。</summary>
+        /// <returns>自動で戻す設定ならデフォルトの状態、そうでなければ null。</returns>
         bool? DesiredCaps()
         {
             if (IsAuto(RestoreParts.Caps)) return KeyState.Default.Caps;
             return null;
         }
 
+        /// <summary>Caps Lock を自動で戻す設定で、状態がずれていれば戻す。</summary>
         void CheckCaps()
         {
             if (capsBusy) return;
@@ -847,6 +964,9 @@ namespace UndoUnintendedKeymode
             });
         }
 
+        /// <summary>キー入力を送って Caps Lock を切り替える。</summary>
+        /// <param name="target">切り替え後の状態。</param>
+        /// <param name="done">切り替え後に呼ぶ処理（null 可）。</param>
         void SetCaps(bool target, Action done)
         {
             if (IsCapsOn() == target) { if (done != null) done(); return; }
@@ -868,6 +988,8 @@ namespace UndoUnintendedKeymode
             });
         }
 
+        /// <summary>Caps Lock キーを押した入力を送る。</summary>
+        /// <param name="withShift">Shift と一緒に押すかどうか。</param>
         static void PressCaps(bool withShift)
         {
             if (withShift) Native.keybd_event(Native.VK_SHIFT, 0x2A, 0, OwnMarker);
@@ -876,6 +998,7 @@ namespace UndoUnintendedKeymode
             if (withShift) Native.keybd_event(Native.VK_SHIFT, 0x2A, Native.KEYEVENTF_KEYUP, OwnMarker);
         }
 
+        /// <summary>Windows の起動時に自動で起動する設定になっているかどうか。</summary>
         public static bool IsStartupEnabled()
         {
             try
@@ -888,6 +1011,9 @@ namespace UndoUnintendedKeymode
             catch { return false; }
         }
 
+        /// <summary>レジストリの Run キーに登録・削除して、自動起動を切り替える。</summary>
+        /// <param name="enable">true なら登録する。</param>
+        /// <returns>成功したら true。</returns>
         static bool SetStartup(bool enable)
         {
             try
@@ -907,6 +1033,10 @@ namespace UndoUnintendedKeymode
             }
         }
 
+        /// <summary>通知領域にバルーン通知を出す。</summary>
+        /// <param name="title">タイトル。</param>
+        /// <param name="body">本文。</param>
+        /// <param name="force">true なら通知の設定や連続表示の制限を無視して表示する。</param>
         void Balloon(string title, string body, bool force)
         {
             if (!force && !settings.Notify) return;
@@ -918,6 +1048,7 @@ namespace UndoUnintendedKeymode
             tray.ShowBalloonTip(2500);
         }
 
+        /// <summary>UI スレッドで <paramref name="ms"/> ミリ秒後に <paramref name="action"/> を一度だけ実行する。</summary>
         static void Delay(int ms, Action action)
         {
             var t = new System.Windows.Forms.Timer();
@@ -926,6 +1057,7 @@ namespace UndoUnintendedKeymode
             t.Start();
         }
 
+        /// <summary>トレイアイコンとツールチップを描き直す。いずれかの項目が「自動で戻す」なら緑、そうでなければ青。</summary>
         void UpdateIcon()
         {
             var bmp = new Bitmap(32, 32);
@@ -953,6 +1085,7 @@ namespace UndoUnintendedKeymode
             tray.Text = tip;
         }
 
+        /// <summary>角丸四角形のパスを作る。</summary>
         static GraphicsPath RoundRect(Rectangle r, int radius)
         {
             int d = radius * 2;
@@ -965,6 +1098,7 @@ namespace UndoUnintendedKeymode
             return p;
         }
 
+        /// <summary>フックとタイマーを止め、トレイアイコンとリソースを片付けて終了する。</summary>
         protected override void ExitThreadCore()
         {
             if (hookHandle != IntPtr.Zero) { Native.UnhookWindowsHookEx(hookHandle); hookHandle = IntPtr.Zero; }
